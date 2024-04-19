@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 import time
-import PoseModule as pm
+import POSEMODULE as pm
 
-cap = cv2.VideoCapture("3WORKS.mp4")
+cap = cv2.VideoCapture(0)
 detector = pm.poseDetector()
 
 min_val = 1000
@@ -13,6 +13,7 @@ squats_cnt = 0
 pushup_count = 0
 curls_count = 0
 dir_pushup = 0
+jump_count = 0
 ptime = 0
 color = (0, 0, 255)
 
@@ -24,9 +25,12 @@ while True:
         break
 
     img = cv2.resize(img, (1000, 720))
+    
     img = detector.findPose(img, False)
     lmList = detector.getPosition(img, False)
-
+    
+    # print(lmList)
+    
     if len(lmList) != 0:
         dist_from_gnd = detector.distance(img, 20, 18, 8)
         dist_from_gnd_to_head = detector.findDistance(0,32,img)
@@ -96,8 +100,10 @@ while True:
                     squat_paused = True  # Pause the squat count
                 elif current_time - last_squat_time >= 2:  # Check if 1 second has passed since last squat count increase
                     squat_paused = False
-
-
+        x = detector.findDistance(32,31,img)
+        print(x)
+        
+            
         # Calculate the y-coordinate of the bottom of the filled rectangle
         cv2.rectangle(img, (800, 100), (900, 450), (0, 255, 0), 4)  # Outline rectangle with fixed length and width
         cv2.rectangle(img, (800, filled_rect_bottom_y), (900, 450), (0, 0, 255),cv2.FILLED)  # Filled rectangle with color based on percentage
@@ -105,6 +111,7 @@ while True:
         cv2.putText(img, f'Curls: {int(curls_count)}', (45, 670), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 3)
         cv2.putText(img, f'Pushups: {int(pushup_count)}', (45, 720), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
         cv2.putText(img, f'Squats: {int(squats_cnt)}', (45, 630), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
+        cv2.putText(img, f'Jump: {int(jump_count)}', (45, 600), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
 
     # Calculate and display the frame rate
     # cTime = time.time()
@@ -119,9 +126,3 @@ while True:
 # Release the video capture object and close all windows
 cap.release()
 cv2.destroyAllWindows()
-
-
-
-
-
-
