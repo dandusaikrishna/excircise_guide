@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 import time
-import POSEMODULE as pm
+import exera as pm
 
-cap = cv2.VideoCapture(0)
-detector = pm.poseDetector()
+cap = cv2.VideoCapture("jumps.mp4")
+detector = pm.PoseDetector()
 
 min_val = 1000
 max_val = 0
@@ -100,8 +100,8 @@ while True:
                     squat_paused = True  # Pause the squat count
                 elif current_time - last_squat_time >= 2:  # Check if 1 second has passed since last squat count increase
                     squat_paused = False
-        x = detector.findDistance(32,31,img)
-        print(x)
+        # x = detector.findDistance(32,31,img)
+        # print(x)
         
             
         # Calculate the y-coordinate of the bottom of the filled rectangle
@@ -111,7 +111,7 @@ while True:
         cv2.putText(img, f'Curls: {int(curls_count)}', (45, 670), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 3)
         cv2.putText(img, f'Pushups: {int(pushup_count)}', (45, 720), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
         cv2.putText(img, f'Squats: {int(squats_cnt)}', (45, 630), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
-        cv2.putText(img, f'Jump: {int(jump_count)}', (45, 600), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
+        # cv2.putText(img, f'Jump: {int(jump_count)}', (45, 600), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 3)
 
     # Calculate and display the frame rate
     # cTime = time.time()
