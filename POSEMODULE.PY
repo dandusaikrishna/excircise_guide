@@ -88,7 +88,7 @@ class poseDetector():
         #     cv2.putText(img,str(int(angle)),(x2-20,y2+50),cv2.FONT_HERSHEY_PLAIN,2,(255,0,255),2)
         return angle
 def main():
-    cap = cv2.VideoCapture("1squat.mp4")
+    cap = cv2.VideoCapture(0)
     pTime=0
     detector=poseDetector()
     while True:
