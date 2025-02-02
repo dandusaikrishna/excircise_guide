@@ -1,0 +1,91 @@
+/* body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+} */
+
+body {
+    justify-content: center;
+    /* Horizontally center the box */
+    align-items: center;
+}
+
+h1 {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    height: 50px
+}
+
+h2 {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    height: 30px
+}
+
+.login-box {
+    background-color: #fff;
+    padding: 50px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    align-items: center;
+    justify-content: center;
+    margin: 100px 90px 100px 550px;
+    width: 300px;
+    text-align: center;
+}
+
+.login-box h2 {
+    color: black;
+    margin-bottom: 20px;
+}
+
+.login-box input {
+    width: 95%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.login-box select {
+    color: WHITE;
+    background-color: black;
+    width: 95%;
+    padding: 10px;
+    margin: 10px 0px;
+    border-radius: 5px;
+}
+
+.login-box button {
+    width: 50%;
+    padding: 10px;
+    background-color: #007BFF;
+    border: none;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+}
+
+.login-box button:hover {
+    background-color: #0056b3;
+}
+
+
+.no-of-users h5 {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    font-size: 20px;
+}
+
+.counter h1 {
+    font-family: Arial, sans-serif;
+    font-size: 50px;
+    text-align: center;
+}
+
