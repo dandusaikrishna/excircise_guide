@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Pose Detection - Curls Counter</title>
+
+    <!-- Mediapipe Pose -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+
+    <!-- Styles -->
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        video, canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width:80%;
+            height: 80%;
+        }
+    </style>
+</head>
+
+<body>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // Select video & canvas
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let curlsCount = 0;
+        let direction = 0;  // 0 = waiting, 1 = down, 2 = up
+
+        // Access Webcam
+        async function setupCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480 }
+            });
+            video.srcObject = stream;
+
+            return new Promise((resolve) => {
+                video.onloadedmetadata = () => {
+                    resolve(video);
+                };
+            });
+        }
+
+        // Initialize Mediapipe Pose
+        async function initializePose() {
+            const pose = new Pose({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+            });
+
+            pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            pose.onResults(processPose);
+            return pose;
+        }
+
+        // Process Pose Data
+        function processPose(results) {
+            if (!results.poseLandmarks) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const lm = results.poseLandmarks;
+
+            // Get Shoulder (12), Elbow (14), and Wrist (16) coordinates
+            const [x1, y1] = [lm[12].x * canvas.width, lm[12].y * canvas.height];
+            const [x2, y2] = [lm[14].x * canvas.width, lm[14].y * canvas.height];
+            const [x3, y3] = [lm[16].x * canvas.width, lm[16].y * canvas.height];
+
+            // Draw lines
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(x3, y3);
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Draw points
+            [x1, y1, x2, y2, x3, y3].forEach((_, i) => {
+                if (i % 2 === 0) {
+                    ctx.beginPath();
+                    ctx.arc(_[0], _[1], 6, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'red';
+                    ctx.fill();
+                }
+            });
+
+            // Calculate and display angle
+            const angle = findAngle(lm, 12, 14, 16);
+            detectCurls(angle);
+
+            // Display info
+            ctx.fillStyle = "black";
+            ctx.font = "24px Arial";
+            ctx.fillText(`Curls: ${curlsCount}`, 20, 40);
+            ctx.fillText(`Angle: ${Math.round(angle)}°`, 20, 70);
+        }
+
+        // Calculate Angle between three points
+        function findAngle(lm, p1, p2, p3) {
+            const x1 = lm[p1].x * canvas.width, y1 = lm[p1].y * canvas.height;
+            const x2 = lm[p2].x * canvas.width, y2 = lm[p2].y * canvas.height;
+            const x3 = lm[p3].x * canvas.width, y3 = lm[p3].y * canvas.height;
+
+            let angle = Math.atan2(y3 - y2, x3 - x2) - Math.atan2(y1 - y2, x1 - x2);
+            angle = Math.abs(angle * 180 / Math.PI);
+            return angle > 180 ? 360 - angle : angle;
+        }
+
+        // Detect Curl Count
+        function detectCurls(angle) {
+            if (angle > 160) {
+                if (direction === 2) {
+                    curlsCount++;
+                    direction = 0;
+                }
+                direction = 1;
+            } else if (angle < 70) {
+                direction = 2;
+            }
+        }
+
+        // Start Pose Detection
+        async function main() {
+            try {
+                await setupCamera();
+                const pose = await initializePose();
+
+                const processFrame = async () => {
+                    if (video.readyState === 4) {
+                        await pose.send({ image: video });
+                        requestAnimationFrame(processFrame);
+                    }
+                };
+
+                requestAnimationFrame(processFrame);
+            } catch (error) {
+                console.error("Error initializing pose detection:", error);
+            }
+        }
+
+        // Start the app
+        main();
+    </script>
+</body>
+</html>
