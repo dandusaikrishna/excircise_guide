@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quads Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        video, canvas {
+            position: absolute;
+            top: 10;
+            left: 10;
+            width: 80%;
+            height: 80%;
+            object-fit: cover;
+        }
+        .video_text {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 10px;
+            width: 220px;
+            text-align: left;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <div class="video_text">
+        <p>Quads: <span id="Quads-count">0</span></p>
+        <p>Left Angle: <span id="left-angle-value">0</span>°</p>
+        <p>Right Angle: <span id="right-angle-value">0</span>°</p>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let Quads_count = 0;
+        let down = false;
+
+        async function setupCamera() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                if (videoDevices.length < 1) throw new Error("No video input devices found.");
+
+                let externalCam = videoDevices.find(device => !device.label.toLowerCase().includes('integrated'));
+                let selectedDeviceId = externalCam ? externalCam.deviceId : videoDevices[0].deviceId;
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: selectedDeviceId } }
+                });
+
+                video.srcObject = stream;
+                return new Promise(resolve => (video.onloadedmetadata = () => resolve()));
+            } catch (error) {
+                console.error("Camera setup error:", error);
+            }
+        }
+
+        async function initializePose() {
+            const pose = new Pose({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+            });
+
+            pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+
+            pose.onResults((results) => {
+                if (!results.poseLandmarks) {
+                    console.warn("⚠️ No Pose Detected.");
+                    return;
+                }
+
+                // Resize canvas to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Extract pose landmarks
+                const lmList = results.poseLandmarks;
+
+                // Right leg
+                const x1 = lmList[24].x * canvas.width, y1 = lmList[24].y * canvas.height;
+                const x2 = lmList[26].x * canvas.width, y2 = lmList[26].y * canvas.height;
+                const x3 = lmList[28].x * canvas.width, y3 = lmList[28].y * canvas.height;
+
+                // Left leg
+                const x4 = lmList[23].x * canvas.width, y4 = lmList[23].y * canvas.height;
+                const x5 = lmList[25].x * canvas.width, y5 = lmList[25].y * canvas.height;
+                const x6 = lmList[27].x * canvas.width, y6 = lmList[27].y * canvas.height;
+
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = 'blue';
+                ctx.fillStyle = 'red';
+
+                // Draw lines for legs
+                ctx.beginPath();
+                ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+                ctx.moveTo(x2, y2); ctx.lineTo(x3, y3);
+                ctx.moveTo(x4, y4); ctx.lineTo(x5, y5);
+                ctx.moveTo(x5, y5); ctx.lineTo(x6, y6);
+                ctx.stroke();
+
+                // Draw circles at joints
+                [x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6].forEach((coord, i) => {
+                    if (i % 2 === 0) {
+                        ctx.beginPath();
+                        ctx.arc(coord, arguments[i + 1], 6, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                });
+
+                const right_leg_angle = findAngle(lmList, 24, 26, 28);
+                const left_leg_angle = findAngle(lmList, 23, 25, 27);
+
+                detectQuads(right_leg_angle, left_leg_angle);
+            });
+
+            return pose;
+        }
+
+        function findAngle(lmList, p1, p2, p3) {
+            const x1 = lmList[p1].x * canvas.width, y1 = lmList[p1].y * canvas.height;
+            const x2 = lmList[p2].x * canvas.width, y2 = lmList[p2].y * canvas.height;
+            const x3 = lmList[p3].x * canvas.width, y3 = lmList[p3].y * canvas.height;
+
+            let angle = Math.atan2(y3 - y2, x3 - x2) - Math.atan2(y1 - y2, x1 - x2);
+            angle = Math.abs(angle * 180 / Math.PI);
+            return angle > 180 ? 360 - angle : angle;
+        }
+
+        function detectQuads(right_leg_angle, left_leg_angle) {
+            if (right_leg_angle < 95 && left_leg_angle < 95) {
+                down = true;
+            } else if (down && right_leg_angle > 170 && left_leg_angle > 170) {
+                down = false;
+                Quads_count += 1;
+            }
+            document.getElementById('right-angle-value').innerText = Math.round(right_leg_angle);
+            document.getElementById('left-angle-value').innerText = Math.round(left_leg_angle);
+            document.getElementById('Quads-count').innerText = Quads_count;
+        }
+
+        async function startApp() {
+            await setupCamera();
+            const pose = await initializePose();
+            await pose.send({ image: video });
+
+            function onFrame() {
+                pose.send({ image: video });
+                requestAnimationFrame(onFrame);
+            }
+            requestAnimationFrame(onFrame);
+        }
+
+        startApp();
+    </script>
+
+</body>
+</html>
