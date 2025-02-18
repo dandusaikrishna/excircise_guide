@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dumbbell Reverse Curl</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.4/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            overflow: hidden;
+        }
+
+        video {
+            position: absolute;
+            top: 10;
+            left: 10;
+            z-index: 1;
+            width: 60%;
+            height: 80%;
+        }
+
+        canvas {
+            position: absolute;
+            top: 10;
+            left: 10;
+            z-index: 2;
+            width: 60%;
+            height: 80%;
+        }
+        .video_text {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+            padding: 10px;
+            border-radius: 10px;
+            width: 300px;  /* Set a fixed width */
+            text-align: left; /* Align text properly */
+            white-space: nowrap;
+        }
+        
+    </style>
+</head>
+<body>
+    <video id ='video' muted playsinline autoplay loop crossorigin = "anonymous"></video>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        document.body.appendChild(canvas);
+
+        async function initializePose(){
+            return new Promise((resolve,reject) => {
+                const pose = new Pose({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+                });
+
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                pose.onResults((results) => {
+                    if (!results.poseLandmarks) {
+                        console.warn("⚠️ No Pose Detected.");
+                        return;
+                    }
+
+                    // Clear the canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // Ensure the canvas size matches the video
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+
+                    // Get the landmarks
+                    const lmList = results.poseLandmarks;
+
+                    // Check if landmarks are detected
+                    
+                    console.log(lmList);
+
+                    if (lmList.length > 0){
+                        //right-leg
+                        const x1 = lmList[11].x * canvas.width;
+                        const y1 = lmList[11].y * canvas.height;
+                        const x2 = lmList[13].x * canvas.width;
+                        const y2 = lmList[13].y * canvas.height;
+                        const x3 = lmList[15].x * canvas.width;
+                        const y3 = lmList[15].y * canvas.height;
+                        //left-leg
+                        const x4 = lmList[12].x * canvas.width;
+                        const y4 = lmList[12].y * canvas.height;
+                        const x5 = lmList[14].x * canvas.width;
+                        const y5 = lmList[14].y * canvas.height;
+                        const x6 = lmList[16].x * canvas.width;
+                        const y6 = lmList[16].y * canvas.height;
+
+                        ctx.beginPath();
+                        ctx.moveTo(x1,y1);
+                        ctx.lineTo(x2,y2);
+                        ctx.moveTo(x2,y2);
+                        ctx.lineTo(x3,y3);
+                        ctx.moveTo(x4,y4);
+                        ctx.lineTo(x5,y5);
+                        ctx.moveTo(x5,y5);
+                        ctx.lineTo(x6,y6);
+                        ctx.lineWidth = 4;
+                        ctx.strokeStyle = 'blue';
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        function drawPoint(x, y) {
+                            ctx.beginPath();
+                            ctx.arc(x, y, 6, 0, 2 * Math.PI);
+                            ctx.fillStyle = 'red';  // Point color
+                            ctx.fill();
+                        }
+                        
+                        drawPoint(x1, y1); // Shoulder
+                        drawPoint(x2, y2); // Elbow
+                        drawPoint(x3, y3); // Wrist
+                        drawPoint(x4, y4); // Shoulder
+                        drawPoint(x5, y5);
+                        drawPoint(x6, y6);
+
+                        const right_armpit_angle = findAngle(lmList,11,13,15);
+                        const left_armpit_angle =  findAngle(lmList,12,14,16);
+                        
+                        detectAngle(right_armpit_angle,left_armpit_angle);
+                    }
+                });
+
+                resolve(pose);
+            })
+        }
+
+        function findAngle(lmList,p1,p2,p3){
+            const x1 = lmList[p1].x * canvas.width;
+            const y1 = lmList[p1].y * canvas.height;
+            const x2 = lmList[p2].x * canvas.width;
+            const y2 = lmList[p2].y * canvas.height;
+            const x3 = lmList[p3].x * canvas.width;
+            const y3 = lmList[p3].y * canvas.height;
+
+            // Calculate angle using the atan2 function
+            let angle = Math.atan2(y3 - y2, x3 - x2) - Math.atan2(y1 - y2, x1 - x2);
+            angle = Math.abs(angle * 180 / Math.PI); // Convert radians to degrees
+            if (angle > 180) {
+                angle = 360 - angle; // Ensure angle is within 0-180 degrees
+            }
+
+            return angle;
+        }
+
+        let count = 0
+        let down = false
+        function detectAngle(right_armpit_angle,left_armpit_angle){
+            if (right_armpit_angle > 165 && left_armpit_angle > 165){
+                down = true
+            }
+            else if(down == true && (right_armpit_angle > 55 &&  left_armpit_angle > 55)){
+                down = false
+                count += 1
+            }
+            document.getElementById('right_armpit_angle').innerText = Math.round(right_armpit_angle);
+            document.getElementById('left_armpit_angle').innerText = Math.round(left_armpit_angle);
+            document.getElementById('count').innerText = Math.round(count);
+        }
+
+        
+        async function main(){
+            try
+            {
+                const poseDetector =  await initializePose();
+                console.log("Pose module initialized");
+                if (!video){
+                    console.log("video element not found");
+                    return;
+                }
+                video.src = "video4.mp4";
+                video.load();
+                video.play();
+                video.onloadedmetadata = () =>{
+                    console.log("video metadata is loaded!")
+                }
+
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+                function ProcessFrame(){
+                    if (!video.paused && !video.ended){
+                        poseDetector.send({image : video}).then(() => { 
+                            requestAnimationFrame(ProcessFrame);
+                        });
+                    }
+                } 
+
+                requestAnimationFrame(ProcessFrame);
+            }
+
+            catch (error)
+            {
+                console.log('Pose detection error:' ,error);
+            }
+        }
+        main();
+        
+    </script>
+    <div class="video_text">
+        <p>count: <span id="count">0</span></p>
+        <p>left_armpit_angle: <span id="left_armpit_angle">0</span>°</p>
+        <p>right_armpit_angle: <span id="right_armpit_angle">0</span>°</p>
+    </div>
+</body>
+</html>
