@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calves_page</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.4/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            overflow: hidden;
+        }
+
+        video {
+            position: absolute;
+            top: 10;
+            left: 10;
+            z-index: 1;
+            width: 80%;
+            height: 80%;
+        }
+
+        canvas {
+            position: absolute;
+            top: 10;
+            left: 10;
+            z-index: 1;
+            width: 80%;
+            height: 80%;
+        }
+
+        .video_text {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            /* Semi-transparent background */
+            padding: 10px;
+            border-radius: 10px;
+            width: 300px;
+            /* Set a fixed width */
+            text-align: left;
+            /* Align text properly */
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <video id='video' muted playsinline autoplay crossorigin="anonymous"></video>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        document.body.appendChild(canvas);
+
+        let mini_x1 = Infinity;  // Initialize properly
+        let maxi_x1 = -Infinity; // Initialize properly
+        let mini_y1 = Infinity;  // Initialize properly
+        let maxi_y1 = -Infinity;
+
+        async function initializePose() {
+            return new Promise((resolve, reject) => {
+                const pose = new Pose({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+                });
+
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                pose.onResults((results) => {
+                    if (!results.poseLandmarks) {
+                        console.warn("⚠️ No Pose Detected.");
+                        return;
+                    }
+
+                    // Clear canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // Ensure the canvas size matches the video
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+
+                    const lmList = results.poseLandmarks;
+
+                    if (lmList.length > 0) {
+                        mini_x1 = Math.min(mini_x1, lmList[31].x * canvas.width);
+                        maxi_x1 = Math.max(maxi_x1, lmList[31].x * canvas.width);
+                        mini_y1 = Math.min(mini_y1, lmList[31].y * canvas.height);
+                        maxi_y1 = Math.max(maxi_y1, lmList[31].y * canvas.height);
+
+
+                        const x1 = lmList[27].x * canvas.width;
+                        const y1 = lmList[27].y * canvas.height;
+
+                        const x2 = lmList[32].x * canvas.width;
+                        const y2 = lmList[32].y * canvas.height;
+
+                        DetectPosition(x1, y1);
+                        console.log("x1:", x1);
+                        console.log("y1:", y1);
+                        ctx.beginPath();
+                        ctx.arc(x1, y1, 6, 0, 2 * Math.PI);
+                        ctx.fillStyle = 'red';
+                        ctx.fill();
+                    }
+                });
+
+                resolve(pose);
+            });
+        }
+        let count = 0;
+        let isUp = false;  // Track state
+
+        // Threshold values for flexibility
+        const xThreshold = 10;  // Smaller threshold for lateral movements
+        const yThreshold = 5;  // Adjust for slight height variations
+
+        function DetectPosition(x1, y1) {
+            // Updated min/max values for point 27
+            const min_x = 643.13, max_x = 651.64;
+            const min_y = 705.23, max_y = 708.31;
+
+            // Apply thresholding for flexibility
+            const up_y_threshold = min_y - yThreshold;   // Allow slight variation upwards
+            const down_y_threshold = max_y + yThreshold; // Allow slight variation downwards
+
+            // Detect "Up" position (standing on toes)
+            if (!isUp && x1 >= (min_x - xThreshold) && x1 <= (max_x + xThreshold) && y1 <= up_y_threshold) {
+                isUp = true;
+                console.log("Up Position Detected");
+            }
+            // Detect "Down" position (heels on the ground) & increase count
+            else if (isUp && x1 >= (min_x - xThreshold) && x1 <= (max_x + xThreshold) && y1 >= down_y_threshold) {
+                isUp = false;
+                count += 1;
+                console.log("Down Position Detected - Count:", count);
+                document.getElementById('count').innerText = count;
+            }
+        }
+
+
+        async function main() {
+            try {
+                const poseDetector = await initializePose();
+                console.log("Pose module initialized");
+
+                if (!video) {
+                    console.log("Video element not found");
+                    return;
+                }
+
+                video.src = "video3.mp4";
+                video.load();
+                video.play();
+
+                video.onloadedmetadata = () => {
+
+                    console.log("Video metadata is loaded!");
+                };
+
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+
+                function ProcessFrame() {
+                    if (!video.paused && !video.ended) {
+                        poseDetector.send({ image: video }).then(() => {
+                            requestAnimationFrame(ProcessFrame);
+                        });
+                    }
+                }
+
+                requestAnimationFrame(ProcessFrame);
+
+                // Event listener to log min/max at the end
+                video.onended = () => {
+                    console.log("Video Ended!");
+                    console.log("Final mini_x1:", mini_x1);
+                    console.log("Final maxi_x1:", maxi_x1);
+                    console.log("Final mini_y1:", mini_y1);
+                    console.log("Final maxi_y1:", maxi_y1);
+                };
+
+            } catch (error) {
+                console.log('Pose detection error:', error);
+            }
+        }
+
+        main();
+    </script>
+    <div class="video_text">
+        <p>count: <span id="count">0</span></p>
+    </div>
+</body>
+
+</html>

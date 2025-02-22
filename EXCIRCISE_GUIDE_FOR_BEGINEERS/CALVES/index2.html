@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calf Raise Counter</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.4/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        video, canvas {
+            width: 60%;
+            height: 60%;
+            display: block;
+            margin: auto;
+        }
+        .counter {
+            font-size: 24px;
+            font-weight: bold;
+            background-color: black;
+            color: white;
+            padding: 10px;
+            display: inline-block;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Calf Raise Counter</h1>
+    <video id="video" muted playsinline autoplay loop crossorigin="anonymous"></video>
+    <div class="counter">Count: <span id="count">0</span></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        document.body.appendChild(canvas);
+
+        let count = 0;
+        let up = false;
+        let down = true;
+
+        const mini_y1 = 705;
+        const maxi_y1 = 708;
+        const threshold = 15; // Buffer range to avoid noise
+
+        async function initializePose() {
+            return new Promise((resolve, reject) => {
+                const pose = new Pose({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+                });
+
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                pose.onResults((results) => {
+                    if (!results.poseLandmarks) {
+                        console.warn("⚠️ No Pose Detected.");
+                        return;
+                    }
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+
+                    const lmList = results.poseLandmarks;
+                    if (lmList.length > 0) {
+                        // Detect ankle (landmark 31) movement
+                        DetectPosition(lmList[31].x * canvas.width, lmList[31].y * canvas.height);
+                    }
+                });
+
+                resolve(pose);
+            });
+        }
+
+        function DetectPosition(x1, y1) {
+            if (down && y1 <= mini_y1 + threshold) {
+                up = true;
+                down = false;
+                console.log("UP detected");
+            }
+
+            if (up && y1 >= maxi_y1 - threshold) {
+                down = true;
+                up = false;
+                count++;
+                document.getElementById('count').innerText = count;
+                console.log("DOWN detected. Count:", count);
+            }
+        }
+
+        async function main() {
+            try {
+                const poseDetector = await initializePose();
+                console.log("✅ Pose Model Initialized!");
+
+                video.src = "video3.mp4";
+                video.load();
+                video.play();
+
+                video.onloadedmetadata = () => {
+                    console.log("✅ Video Metadata Loaded!");
+
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+
+                    function processFrame() {
+                        if (!video.paused && !video.ended) {
+                            poseDetector.send({ image: video }).then(() => {
+                                requestAnimationFrame(processFrame);
+                            });
+                        }
+                    }
+
+                    requestAnimationFrame(processFrame);
+                };
+            } catch (error) {
+                console.error('❌ Pose detection error:', error);
+            }
+        }
+
+        main();
+    </script>
+
+</body>
+</html>

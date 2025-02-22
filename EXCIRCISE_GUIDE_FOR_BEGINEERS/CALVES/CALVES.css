@@ -1,0 +1,5 @@
+.from-mw-blue-400 {
+    --tw-gradient-from: #3653a9 var(--tw-gradient-from-position);
+    --tw-gradient-to: rgb(54 83 164 / 0) var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
